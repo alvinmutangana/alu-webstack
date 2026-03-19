@@ -1,21 +1,30 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2086
+# 0-world_wide_web - Displays DNS info for subdomains using dig and awk
 
-domain=$1
-subdomain=$2
+# Function to fetch and display DNS record info
+audit_dns() {
+    local domain=$1
+    local subdomain=$2
 
-get_record() {
-    result=$(dig "$1.$domain" | awk '/ANSWER SECTION:/ {getline; print}')
-    type=$(echo $result | awk '{print $4}')
-    ip=$(echo $result | awk '{print $5}')
-    echo "The subdomain $1 is a $type record and points to $ip"
+    # Querying the A record and parsing with awk
+    # shellcheck disable=SC2086
+    dig "${subdomain}.${domain}" | grep -A1 'ANSWER SECTION:' | grep -v 'ANSWER SECTION' | awk -v subdom="$subdomain" '
+    {
+        printf "The subdomain %s is a %s record and points to %s\n", subdom, $4, $5
+    }'
 }
 
-if [ -z "$subdomain" ]; then
-    for sub in www lb-01 web-01 web-02
-    do
-        get_record $sub
-    done
+# Assign arguments
+DOMAIN=$1
+SPECIFIC_SUB=$2
+
+if [ -n "$SPECIFIC_SUB" ]; then
+    # If a specific subdomain is provided
+    audit_dns "$DOMAIN" "$SPECIFIC_SUB"
 else
-    get_record $subdomain
+    # Default list in specified order
+    audit_dns "$DOMAIN" "www"
+    audit_dns "$DOMAIN" "lb-01"
+    audit_dns "$DOMAIN" "web-01"
+    audit_dns "$DOMAIN" "web-02"
 fi
